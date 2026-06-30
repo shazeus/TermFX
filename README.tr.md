@@ -1,5 +1,7 @@
 # TermFX
 
+<img width="1640" height="856" alt="Yeni Proje (2)" src="https://github.com/user-attachments/assets/41043c7a-431a-4ffd-8e33-7e57ca34eeb9" />
+
 [English](README.md) | [Türkçe](README.tr.md)
 
 Terminalden çalışan, FFmpeg tabanlı ve MCP uyumlu video editörü.
