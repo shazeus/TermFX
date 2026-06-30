@@ -1,0 +1,10 @@
+/target/
+/.idea/
+/.vscode/
+*.mp4
+*.mov
+*.mkv
+*.wav
+*.aac
+*.log
+termfx.project.json
