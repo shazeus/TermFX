@@ -1,5 +1,7 @@
 # TermFX
 
+<img width="1640" height="856" alt="Yeni Proje (2)" src="https://github.com/user-attachments/assets/aca509fc-b2c2-4d41-b1d8-3319462921ef" />
+
 [English](README.md) | [Türkçe](README.tr.md)
 
 Terminal-native video editor with FFmpeg rendering, a rich TUI, and MCP tools
