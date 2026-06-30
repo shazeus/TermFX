@@ -2,73 +2,72 @@
 
 [English](README.md) | [Türkçe](README.tr.md)
 
-Terminal-native video editor with FFmpeg rendering, a rich TUI, and MCP tools
-for AI-assisted editing.
+Terminalden çalışan, FFmpeg tabanlı ve MCP uyumlu video editörü.
 
-TermFX is designed to combine Premiere-style linear editing with
-After-Effects-style layered compositing inside a terminal workflow. It also
-exposes the project as an MCP server so an AI assistant can inspect media, cut
-clips, apply effects, and prepare smart edit plans through JSON-RPC tools.
+TermFX’in amacı, Premiere Pro tarzı doğrusal kurgu ile After Effects tarzı
+katmanlı efekt/compositing akışını terminal içinde birleştirmek ve aynı projeyi
+bir AI asistanının MCP tool’ları üzerinden yönetebilmesini sağlamaktır.
 
-## Purpose
+## Ne İşe Yarar?
 
-TermFX focuses on three editing workflows:
+TermFX üç ana problemi çözer:
 
-- **Sequencing:** Add media to a timeline, trim clips, cut ranges, ripple-delete
-  gaps, and mix audio.
-- **Effects and compositing:** Build FFmpeg complex filtergraphs for text
-  overlays, fades, black-and-white, glitch, and `s_shake`-style motion effects.
-- **AI control:** Let Claude, ChatGPT, or another MCP client operate the editor
-  through a stdio JSON-RPC server.
+- **Kurgu:** Videoları timeline’a ekleme, kesme, trimleme, ripple delete ve ses
+  karıştırma.
+- **Efekt ve compositing:** Yazı katmanı, fade, black-white, glitch ve
+  `s_shake` benzeri hareket efektlerini FFmpeg filtergraph ile üretme.
+- **AI entegrasyonu:** Claude, ChatGPT veya başka bir MCP client’ın projedeki
+  medyaları listelemesi, kesim yapması ve efekt uygulaması için stdio tabanlı
+  JSON-RPC MCP server sağlama.
 
-The current repository is a production-oriented core implementation: project
-serialization, the timeline model, FFmpeg command generation, the terminal UI,
-and MCP tool handlers are already wired together.
+Bu repo şu an üretime yakın bir çekirdek iskeleti sunar: proje formatı, timeline
+modeli, FFmpeg komut üretimi, TUI ekranı ve MCP tool handler’ları çalışır
+durumdadır.
 
-## Features
+## Özellikler
 
-- Rust + Tokio architecture
+- Rust + Tokio tabanlı güvenli ve modüler mimari
 - FFmpeg complex filtergraph builder
-- Frame-based timeline model
-- Separate video and audio tracks
-- Clip append, trim, and ripple delete
-- Effect stack support:
+- Frame tabanlı timeline modeli
+- Video/audio track ayrımı
+- Clip ekleme, trim ve ripple delete
+- Efekt stack’i:
   - `black_and_white`
   - `glitch`
   - `fade_in`
   - `fade_out`
   - `s_shake`
   - `text_overlay`
-- Terminal UI built with Ratatui and Crossterm
+- Ratatui/Crossterm ile terminal arayüzü
 - MCP stdio server:
   - `list_media`
   - `append_media`
   - `cut_video`
   - `apply_effect`
   - `smart_edit`
-- JSON project file format
-- Tested baseline render path
+- JSON proje dosyası
+- Test edilmiş temel render akışı
 
-## Requirements
+## Gereksinimler
 
-- macOS, Linux, or Windows
+- macOS, Linux veya Windows
 - Rust toolchain
-- FFmpeg and FFprobe
-- GitHub CLI (`gh`) only if you want to publish changes to GitHub
+- FFmpeg ve FFprobe
+- GitHub’a push için GitHub CLI (`gh`)
 
-On macOS:
+macOS için:
 
 ```bash
 brew install rust ffmpeg gh
 ```
 
-If Rust is already installed:
+Rust zaten kuruluysa sadece:
 
 ```bash
 brew install ffmpeg gh
 ```
 
-Verify the installation:
+Kurulumu doğrula:
 
 ```bash
 rustc --version
@@ -78,42 +77,42 @@ ffprobe -version
 gh --version
 ```
 
-## Installation
+## Kurulum
 
-Clone the repository:
+Repoyu klonla:
 
 ```bash
 git clone https://github.com/shazeus/TermFX.git
 cd TermFX
 ```
 
-Build the project:
+Derle:
 
 ```bash
 cargo build
 ```
 
-Run the tests:
+Testleri çalıştır:
 
 ```bash
 cargo test
 ```
 
-Show CLI help:
+CLI yardımını gör:
 
 ```bash
 cargo run -- --help
 ```
 
-## Quick Start
+## Hızlı Başlangıç
 
-Create a new project:
+Yeni proje oluştur:
 
 ```bash
 cargo run -- new --name demo --project termfx.project.json
 ```
 
-Add media to the project:
+Projeye medya ekle:
 
 ```bash
 cargo run -- add-media \
@@ -122,13 +121,13 @@ cargo run -- add-media \
   --kind video
 ```
 
-The command returns a media id:
+Komut medya id’sini döndürür:
 
 ```text
 Added media shot (6508eba6-7a9b-4eea-b9d0-6f7b92835c18)
 ```
 
-Append that media to the timeline:
+Medyayı timeline’a clip olarak ekle:
 
 ```bash
 cargo run -- add-clip \
@@ -139,13 +138,13 @@ cargo run -- add-clip \
   --duration-seconds 5
 ```
 
-Open the terminal UI:
+Terminal arayüzünü aç:
 
 ```bash
 cargo run -- tui --project termfx.project.json
 ```
 
-Preview the FFmpeg command without rendering:
+FFmpeg komutunu render etmeden gör:
 
 ```bash
 cargo run -- render \
@@ -154,7 +153,7 @@ cargo run -- render \
   --dry-run
 ```
 
-Render the video:
+Gerçek render al:
 
 ```bash
 cargo run -- render \
@@ -162,15 +161,15 @@ cargo run -- render \
   --output out.mp4
 ```
 
-## MCP Server
+## MCP Server Kullanımı
 
-Run the TermFX MCP server over stdio:
+TermFX MCP server’ı stdio üzerinden çalışır:
 
 ```bash
 cargo run -- mcp --project termfx.project.json
 ```
 
-Example MCP client configuration:
+Bir MCP client konfigürasyonu örneği:
 
 ```json
 {
@@ -191,7 +190,7 @@ Example MCP client configuration:
 }
 ```
 
-Supported MCP lifecycle methods:
+Server şu MCP lifecycle çağrılarını destekler:
 
 - `initialize`
 - `notifications/initialized`
@@ -199,9 +198,9 @@ Supported MCP lifecycle methods:
 - `tools/list`
 - `tools/call`
 
-## MCP Tool Examples
+## MCP Tool Örnekleri
 
-List media and timeline state:
+Medyaları ve timeline’ı listele:
 
 ```json
 {
@@ -215,7 +214,7 @@ List media and timeline state:
 }
 ```
 
-Append media to the timeline:
+Medyayı timeline’a ekle:
 
 ```json
 {
@@ -234,7 +233,7 @@ Append media to the timeline:
 }
 ```
 
-Cut a timeline range with ripple delete:
+Timeline aralığını ripple delete ile kes:
 
 ```json
 {
@@ -253,7 +252,7 @@ Cut a timeline range with ripple delete:
 }
 ```
 
-Apply an `s_shake` effect to a clip:
+Clip’e `s_shake` efekti uygula:
 
 ```json
 {
@@ -275,7 +274,7 @@ Apply an `s_shake` effect to a clip:
 }
 ```
 
-Add a text overlay:
+Yazı katmanı ekle:
 
 ```json
 {
@@ -301,7 +300,7 @@ Add a text overlay:
 }
 ```
 
-Create a silence or beat-sync analysis plan:
+Sessizlik veya beat-sync analizi için plan üret:
 
 ```json
 {
@@ -320,10 +319,9 @@ Create a silence or beat-sync analysis plan:
 }
 ```
 
-## Terminal UI
+## TUI
 
-The TUI is organized into project assets, preview, inspector, timeline, and MCP
-status panels:
+TUI şu panellerden oluşur:
 
 ```text
 +--------------------------------------------------------------------------------+
@@ -345,42 +343,42 @@ status panels:
 +--------------------------------------------------------------------------------+
 ```
 
-Shortcuts:
+Kısayollar:
 
-- `q`: quit
-- `up/down`: select track
+- `q`: çıkış
+- `up/down`: track seçimi
 
-## Project Structure
+## Proje Dosya Yapısı
 
 ```text
 src/
   core/
-    effect.rs          Effect model and keyframe data types
-    media.rs           Media asset model
-    smart.rs           Smart edit analysis plan
-    time.rs            FPS and frame/seconds conversion
-    timeline.rs        Tracks, clips, trim, and ripple delete
+    effect.rs          Efekt modeli ve keyframe veri tipleri
+    media.rs           Medya asset modeli
+    smart.rs           Smart edit analiz planı
+    time.rs            FPS ve frame/saniye dönüşümü
+    timeline.rs        Track, clip, trim ve ripple delete
   mcp/
-    protocol.rs        JSON-RPC request/response types
+    protocol.rs        JSON-RPC request/response tipleri
     server.rs          MCP stdio server loop
-    tools.rs           MCP tool schemas and handlers
+    tools.rs           MCP tool schema ve handler’lar
   render/
-    ffmpeg.rs          FFmpeg command and filtergraph builder
-    filtergraph.rs     Escaping and time helpers
-    progress.rs        Render progress model
+    ffmpeg.rs          FFmpeg command ve filtergraph builder
+    filtergraph.rs     Escaping ve zaman yardımcıları
+    progress.rs        Render progress modeli
   tui/
-    app.rs             Terminal lifecycle and event loop
-    layout.rs          TUI panel layout
-    timeline_widget.rs Timeline drawing
-  project.rs           JSON project model
-  main.rs              CLI entrypoint
+    app.rs             Terminal lifecycle ve event loop
+    layout.rs          TUI panel yerleşimi
+    timeline_widget.rs Timeline çizimi
+  project.rs           JSON proje modeli
+  main.rs              CLI giriş noktası
 ```
 
-Detailed Turkish architecture notes:
+Daha ayrıntılı mimari açıklama için:
 
 [ARCHITECTURE_TR.md](ARCHITECTURE_TR.md)
 
-## Development
+## Geliştirme
 
 Format:
 
@@ -403,18 +401,18 @@ cargo run -- render \
   --dry-run
 ```
 
-## Status
+## Durum
 
-TermFX is in active development. The core timeline, MCP tool handlers, and
-FFmpeg render path are functional. Planned production work includes:
+Bu proje aktif geliştirme aşamasındadır. Çekirdek timeline, MCP tool handler’ları
+ve FFmpeg render path’i çalışır durumdadır. Sıradaki üretim adımları:
 
-- Automatic media metadata extraction with FFprobe
-- Background render queue and progress parsing
-- Preview cache, waveform, and proxy systems
+- FFprobe ile otomatik medya metadata okuma
+- Background render queue ve progress parsing
+- Preview cache, waveform ve proxy sistemi
 - Keyframe interpolation
-- Turning smart edit plans into real timeline mutations
-- MCP resource support
+- Smart edit planlarını gerçek timeline mutation’a dönüştürme
+- MCP resource desteği
 
-## License
+## Lisans
 
 MIT
