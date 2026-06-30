@@ -4,13 +4,14 @@
 
 ![TermFX banner](assets/termfx-banner.png)
 
-Terminal-native video editor with FFmpeg rendering, a rich TUI, and MCP tools
-for AI-assisted editing.
+Native video editor with FFmpeg rendering, layered effects, timeline editing,
+project history, and MCP tools for AI-assisted editing.
 
-TermFX is designed to combine Premiere-style linear editing with
-After-Effects-style layered compositing inside a terminal workflow. It also
-exposes the project as an MCP server so an AI assistant can inspect media, cut
-clips, apply effects, and prepare smart edit plans through JSON-RPC tools.
+TermFX Studio is a desktop editing application. It provides project creation,
+recent projects, timeline sequencing, clip inspection, layered effect stacks,
+transform keyframes, render controls, and an MCP endpoint so an AI assistant can
+inspect media, cut clips, apply effects, and prepare smart edit plans through
+JSON-RPC tools.
 
 ## Purpose
 
@@ -21,11 +22,11 @@ TermFX focuses on three editing workflows:
 - **Effects and compositing:** Build FFmpeg complex filtergraphs for text
   overlays, fades, black-and-white, glitch, and `s_shake`-style motion effects.
 - **AI control:** Let Claude, ChatGPT, or another MCP client operate the editor
-  through stdio MCP or the embedded HTTP MCP endpoint that starts with the TUI.
+  through stdio MCP or the embedded HTTP MCP endpoint.
 
 The current repository is a production-oriented core implementation: project
-serialization, the timeline model, FFmpeg command generation, the terminal UI,
-and MCP tool handlers are already wired together.
+serialization, the timeline model, FFmpeg command generation, the desktop UI,
+legacy CLI utilities, and MCP tool handlers are already wired together.
 
 ## Features
 
@@ -34,9 +35,22 @@ and MCP tool handlers are already wired together.
 - Frame-based timeline model
 - Separate video and audio tracks
 - Clip append, trim, and ripple delete
-- Premiere-style clip speed changes, track mute/lock, and timeline markers
-- After Effects-style transform keyframes with easing
+- Clip speed changes, track mute/lock, and timeline markers
+- Transform keyframes with easing
 - Keyframe graph export as JSON, ASCII, or SVG
+- Native desktop app:
+  - home screen
+  - project creation and opening
+  - recent project history
+  - project settings for resolution, FPS, and sample rate
+  - media pool
+  - viewer surface
+  - visual timeline
+  - clip inspector
+  - effect browser
+  - keyframe editor
+  - render panel
+  - MCP activity panel
 - Effect stack support:
   - `black_and_white`
   - `sepia`
@@ -60,8 +74,8 @@ and MCP tool handlers are already wired together.
   - `fade_out`
   - `s_shake`
   - `text_overlay`
-- Terminal UI built with Ratatui and Crossterm
-- TUI-started HTTP MCP endpoint with a live AI activity panel
+- Optional legacy TUI built with Ratatui and Crossterm
+- Desktop-started HTTP MCP endpoint with a live AI activity panel
 - MCP stdio server:
   - `list_media`
   - `list_effects`
@@ -147,57 +161,45 @@ cargo run -- --help
 
 ## Quick Start
 
-Create a new project:
+Start the desktop app:
+
+```bash
+cargo run --bin termfx-studio
+```
+
+You can also launch it through the multi-command binary:
+
+```bash
+cargo run -- studio
+```
+
+Inside the app:
+
+- Create or open a project from the home screen.
+- Set resolution, FPS, and sample rate in project settings.
+- Import media from the media panel.
+- Append clips to the visual timeline.
+- Select clips to adjust timing, opacity, volume, speed, effects, and keyframes.
+- Render from the render panel.
+- Use the MCP panel to expose the current project to an AI client.
+
+The desktop app starts the local MCP endpoint when a project is opened:
+
+```text
+http://127.0.0.1:4739/mcp
+```
+
+Legacy command-line project creation is still available for automation:
 
 ```bash
 cargo run -- new --name demo --project termfx.project.json
-```
-
-Add media to the project:
-
-```bash
-cargo run -- add-media \
-  --project termfx.project.json \
-  --path ./shot.mp4 \
-  --kind video
-```
-
-The command returns a media id:
-
-```text
-Added media shot (6508eba6-7a9b-4eea-b9d0-6f7b92835c18)
-```
-
-Append that media to the timeline:
-
-```bash
+cargo run -- add-media --project termfx.project.json --path ./shot.mp4 --kind video
 cargo run -- add-clip \
   --project termfx.project.json \
   --media-id 6508eba6-7a9b-4eea-b9d0-6f7b92835c18 \
   --track 0 \
   --start-seconds 0 \
   --duration-seconds 5
-```
-
-Open the terminal UI:
-
-```bash
-cargo run -- tui --project termfx.project.json
-```
-
-By default the TUI also starts an MCP endpoint at:
-
-```text
-http://127.0.0.1:4739/mcp
-```
-
-The bottom `AI / MCP` panel shows the endpoint, the project path, the MCP log
-file, and the latest AI tool calls. Use a different port or disable embedded MCP
-when needed:
-
-```bash
-cargo run -- tui --project termfx.project.json --mcp-port 4740
-cargo run -- tui --project termfx.project.json --no-mcp
 ```
 
 Preview the FFmpeg command without rendering:
@@ -219,11 +221,11 @@ cargo run -- render \
 
 ## MCP Server
 
-The normal interactive workflow is to start the TUI. It automatically exposes
-the current project over local HTTP and shows AI activity in the terminal:
+The normal interactive workflow is to start the desktop app. It exposes the
+current project over local HTTP and shows AI activity in the MCP panel:
 
 ```bash
-cargo run -- tui --project termfx.project.json
+cargo run --bin termfx-studio
 ```
 
 HTTP endpoint:
@@ -244,7 +246,7 @@ For MCP clients that support HTTP endpoints, configure the server URL:
 }
 ```
 
-You can also run the same HTTP server without the TUI for testing:
+You can also run the same HTTP server without the desktop app for testing:
 
 ```bash
 cargo run -- mcp-http --project termfx.project.json --port 4739
@@ -593,20 +595,20 @@ Create a silence or beat-sync analysis plan:
 }
 ```
 
-## Terminal UI
+## Desktop UI
 
-The TUI is organized into project assets, preview, inspector, timeline, and MCP
-status panels:
+The desktop workspace is organized into media, viewer, inspector, timeline, and
+MCP status panels:
 
 ```text
 +--------------------------------------------------------------------------------+
-| Project: TermFX       FPS: 30       Render: idle       MCP: connected           |
+| TermFX Studio         Home  Save  Render  Start MCP          1920 x 1080 30 fps |
 +----------------------+------------------------------------+--------------------+
-| Project Assets       | Video Preview                      | Inspector          |
-| - shot_01.mp4        | +---------------- preview --------+ | Track: V1          |
-| - music.wav          | | ASCII/sixel/mpv preview         | | Clip params        |
-| - logo.png           | | waveform/cache thumbnails       | | Effects: s_shake   |
-|                      | +---------------------------------+ | Text/color/fade     |
+| Media                | Viewer                             | Inspector          |
+| - shot_01.mp4        | +------------- frame ------------+ | Clip               |
+| - music.wav          | | selected clip summary          | | Effects            |
+| - logo.png           | | render/open output controls    | | Keyframes          |
+|                      | +---------------------------------+ | Project / MCP       |
 +----------------------+------------------------------------+--------------------+
 | Timeline & Layers                                                             |
 | time    |0------------------------------|-----------------------------------> |
@@ -614,19 +616,16 @@ status panels:
 | V1      |intro############....broll#############....outro########..............|
 | A1      |music================================================================|
 +--------------------------------------------------------------------------------+
-| AI / MCP  list_media ok | apply_effect s_shake queued | render 42%             |
+| MCP  list_media ok | apply_effect s_shake queued | render ready                 |
 +--------------------------------------------------------------------------------+
 ```
-
-Shortcuts:
-
-- `q`: quit
-- `up/down`: select track
 
 ## Project Structure
 
 ```text
 src/
+  bin/
+    termfx-studio.rs   Native desktop app entrypoint
   core/
     effect.rs          Effect, easing, and keyframe graph data types
     media.rs           Media asset model
@@ -641,10 +640,12 @@ src/
     ffmpeg.rs          FFmpeg command and filtergraph builder
     filtergraph.rs     Escaping and time helpers
     progress.rs        Render progress model
+  desktop/
+    mod.rs             Desktop app, project hub, editor panels, MCP activity
   tui/
-    app.rs             Terminal lifecycle and event loop
-    layout.rs          TUI panel layout
-    timeline_widget.rs Timeline drawing
+    app.rs             Optional legacy text UI lifecycle and event loop
+    layout.rs          Optional legacy text UI panel layout
+    timeline_widget.rs Optional legacy timeline drawing
   project.rs           JSON project model
   main.rs              CLI entrypoint
 ```

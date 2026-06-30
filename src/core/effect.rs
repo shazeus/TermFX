@@ -239,7 +239,7 @@ pub fn effect_library() -> Vec<EffectSpec> {
         EffectSpec {
             name: "s_shake",
             category: "motion",
-            description: "After Effects style procedural shake.",
+            description: "Layered compositor style procedural shake.",
         },
         EffectSpec {
             name: "text_overlay",

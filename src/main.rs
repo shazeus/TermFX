@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Parser)]
 #[command(name = "termfx")]
-#[command(about = "Terminal-native video editor with FFmpeg and MCP integration.")]
+#[command(about = "Native video editor with FFmpeg and MCP integration.")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -65,6 +65,7 @@ enum Command {
         #[arg(long, default_value_t = 4739)]
         port: u16,
     },
+    Studio,
     Render {
         #[arg(long, default_value = "termfx.project.json")]
         project: PathBuf,
@@ -145,6 +146,9 @@ async fn main() -> anyhow::Result<()> {
         Command::McpHttp { project, port } => {
             let address = SocketAddr::from(([127, 0, 0, 1], port));
             run_http_server(project, address).await?;
+        }
+        Command::Studio => {
+            termfx::desktop::run()?;
         }
         Command::Render {
             project,

@@ -87,7 +87,7 @@ Mevcut efektler:
 - `Glitch`: `rgbashift` + `noise`
 - `FadeIn`: alpha fade-in
 - `FadeOut`: alpha fade-out
-- `SShake`: After Effects `s_shake` benzeri sin/cos tabanli crop jitter
+- `SShake`: Layered compositor `s_shake` benzeri sin/cos tabanli crop jitter
 - `TextOverlay`: `drawtext` ile video uzerine yazi bindirme
 
 `s_shake` yaklasimi:
@@ -96,7 +96,7 @@ Mevcut efektler:
 2. `crop` filtresinin `x` ve `y` ifadeleri zamanla sin/cos uzerinden oynatilir.
 3. Amplitude, frequency ve seed parametreleri MCP uzerinden degistirilebilir.
 
-After Effects tarzi transform keyframe modeli aktiftir. Her clip `TransformKeyframe`
+Layered compositor tarzi transform keyframe modeli aktiftir. Her clip `TransformKeyframe`
 listesi tasir; `x`, `y`, `scale`, `rotation_degrees`, `opacity` ve `volume`
 degerleri `hold`, `linear`, `ease_in`, `ease_out`, `ease_in_out` easing tipleriyle
 saklanir. Render tarafinda `x`/`y` overlay expression'a, `scale` ve
@@ -119,7 +119,7 @@ FFmpeg builder bu iki bilgiyi tek grafikte birlestirir:
 6. Track ve start siralamasina gore base layer uzerine `overlay` edilir.
 7. Audio stream'ler `atrim`, `adelay`, `volume`, `amix` ile karistirilir.
 
-Bu sayede Premiere tipi cut/slice ile After Effects tipi overlay/filter ayni render
+Bu sayede timeline cut/slice ile layered overlay/filter ayni render
 komutuna donusur.
 
 ### 2.4 Render ve Arka Plan Isleri
@@ -340,7 +340,7 @@ Bir timeline araligini ripple delete ile silmek:
 }
 ```
 
-After Effects tarzi `s_shake` eklemek:
+Layered compositor tarzi `s_shake` eklemek:
 
 ```json
 {
@@ -443,7 +443,7 @@ Panel rolleri:
 - Project Assets: ham video, audio, image ve ileride proxy/cache durumlari.
 - Video Preview: ilk surum placeholder; uretimde mpv IPC, sixel/kitty image protocol
   veya frame cache kullanilir.
-- Timeline & Layers: Premiere gibi yatay zaman, After Effects gibi ust uste video
+- Timeline & Layers: timeline gibi yatay zaman, layered compositor gibi ust uste video
   layer'lari.
 - Inspector: secili track/clip parametreleri, efekt stack'i, keyframe bilgisi.
 - AI / MCP: MCP baglanti durumu, son tool cagrisi, render progress ve hata loglari.

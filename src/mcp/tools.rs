@@ -234,7 +234,7 @@ impl ToolRegistry {
                 },
                 {
                     "name": "add_keyframe",
-                    "description": "Add an After Effects style transform keyframe to a clip.",
+                    "description": "Add an Layered compositor style transform keyframe to a clip.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -283,7 +283,7 @@ impl ToolRegistry {
                 },
                 {
                     "name": "add_marker",
-                    "description": "Add a Premiere-style timeline marker.",
+                    "description": "Add a Timeline timeline marker.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {

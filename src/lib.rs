@@ -1,4 +1,5 @@
 pub mod core;
+pub mod desktop;
 pub mod error;
 pub mod mcp;
 pub mod project;

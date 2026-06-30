@@ -4,11 +4,11 @@
 
 ![TermFX banner](assets/termfx-banner.png)
 
-Terminalden çalışan, FFmpeg tabanlı ve MCP uyumlu video editörü.
+FFmpeg tabanlı, MCP uyumlu ve masaüstü arayüzlü video editörü.
 
-TermFX’in amacı, Premiere Pro tarzı doğrusal kurgu ile After Effects tarzı
-katmanlı efekt/compositing akışını terminal içinde birleştirmek ve aynı projeyi
-bir AI asistanının MCP tool’ları üzerinden yönetebilmesini sağlamaktır.
+TermFX Studio; proje oluşturma, önceki projeleri açma, timeline kurgusu, clip
+inspector, katmanlı efekt stack’i, transform keyframe’leri, render kontrolleri
+ve MCP endpoint’i olan bir masaüstü video editörüdür.
 
 ## Ne İşe Yarar?
 
@@ -20,11 +20,11 @@ TermFX üç ana problemi çözer:
   `s_shake` benzeri hareket efektlerini FFmpeg filtergraph ile üretme.
 - **AI entegrasyonu:** Claude, ChatGPT veya başka bir MCP client’ın projedeki
   medyaları listelemesi, kesim yapması ve efekt uygulaması için stdio MCP veya
-  TUI ile birlikte açılan yerel HTTP MCP endpoint’i sağlama.
+  yerel HTTP MCP endpoint’i sağlama.
 
 Bu repo şu an üretime yakın bir çekirdek iskeleti sunar: proje formatı, timeline
-modeli, FFmpeg komut üretimi, TUI ekranı ve MCP tool handler’ları çalışır
-durumdadır.
+modeli, FFmpeg komut üretimi, masaüstü arayüz, eski CLI yardımcıları ve MCP tool
+handler’ları çalışır durumdadır.
 
 ## Özellikler
 
@@ -33,9 +33,22 @@ durumdadır.
 - Frame tabanlı timeline modeli
 - Video/audio track ayrımı
 - Clip ekleme, trim ve ripple delete
-- Premiere tarzı clip speed, track mute/lock ve timeline marker desteği
-- After Effects tarzı easing destekli transform keyframe’leri
+- Clip speed, track mute/lock ve timeline marker desteği
+- Easing destekli transform keyframe’leri
 - Keyframe graph çıktısı: JSON, ASCII veya SVG
+- Native masaüstü uygulama:
+  - ana ekran
+  - proje oluşturma ve açma
+  - önceki projeler geçmişi
+  - çözünürlük, FPS ve sample rate proje ayarları
+  - medya havuzu
+  - viewer alanı
+  - görsel timeline
+  - clip inspector
+  - efekt tarayıcı
+  - keyframe editörü
+  - render paneli
+  - MCP aktivite paneli
 - Efekt stack’i:
   - `black_and_white`
   - `sepia`
@@ -59,8 +72,8 @@ durumdadır.
   - `fade_out`
   - `s_shake`
   - `text_overlay`
-- Ratatui/Crossterm ile terminal arayüzü
-- TUI açıldığında otomatik başlayan HTTP MCP endpoint’i ve canlı AI aktivite paneli
+- Opsiyonel eski TUI arayüzü
+- Masaüstü uygulamayla başlayan HTTP MCP endpoint’i ve canlı AI aktivite paneli
 - MCP stdio server:
   - `list_media`
   - `list_effects`
@@ -146,56 +159,45 @@ cargo run -- --help
 
 ## Hızlı Başlangıç
 
-Yeni proje oluştur:
+Masaüstü uygulamayı başlat:
+
+```bash
+cargo run --bin termfx-studio
+```
+
+Çok komutlu binary üzerinden de açabilirsin:
+
+```bash
+cargo run -- studio
+```
+
+Uygulama içinden:
+
+- Ana ekrandan proje oluştur veya önceki projeyi aç.
+- Proje ayarlarından çözünürlük, FPS ve sample rate değiştir.
+- Medya panelinden video, ses veya görsel import et.
+- Clip’leri görsel timeline’a ekle.
+- Clip seçip timing, opacity, volume, speed, effect ve keyframe ayarlarını düzenle.
+- Render panelinden çıktı al.
+- MCP panelinden mevcut projeyi AI client’a aç.
+
+Proje açılınca masaüstü uygulama yerel MCP endpoint’ini başlatır:
+
+```text
+http://127.0.0.1:4739/mcp
+```
+
+Otomasyon için eski komut satırı akışı da duruyor:
 
 ```bash
 cargo run -- new --name demo --project termfx.project.json
-```
-
-Projeye medya ekle:
-
-```bash
-cargo run -- add-media \
-  --project termfx.project.json \
-  --path ./shot.mp4 \
-  --kind video
-```
-
-Komut medya id’sini döndürür:
-
-```text
-Added media shot (6508eba6-7a9b-4eea-b9d0-6f7b92835c18)
-```
-
-Medyayı timeline’a clip olarak ekle:
-
-```bash
+cargo run -- add-media --project termfx.project.json --path ./shot.mp4 --kind video
 cargo run -- add-clip \
   --project termfx.project.json \
   --media-id 6508eba6-7a9b-4eea-b9d0-6f7b92835c18 \
   --track 0 \
   --start-seconds 0 \
   --duration-seconds 5
-```
-
-Terminal arayüzünü aç:
-
-```bash
-cargo run -- tui --project termfx.project.json
-```
-
-Varsayılan olarak TUI aynı anda şu MCP endpoint’ini de açar:
-
-```text
-http://127.0.0.1:4739/mcp
-```
-
-Alttaki `AI / MCP` panelinde endpoint, proje yolu, MCP log dosyası ve AI’ın son
-tool çağrıları görünür. Portu değiştirmek veya gömülü MCP’yi kapatmak için:
-
-```bash
-cargo run -- tui --project termfx.project.json --mcp-port 4740
-cargo run -- tui --project termfx.project.json --no-mcp
 ```
 
 FFmpeg komutunu render etmeden gör:
@@ -217,12 +219,12 @@ cargo run -- render \
 
 ## MCP Server Kullanımı
 
-Normal interaktif kullanımda sadece TUI’yi başlatman yeterli. TUI, mevcut
-projeyi yerel HTTP üzerinden MCP olarak açar ve AI’ın yaptığı işleri terminalde
-gösterir:
+Normal interaktif kullanımda masaüstü uygulamayı başlatman yeterli. Uygulama,
+mevcut projeyi yerel HTTP üzerinden MCP olarak açar ve AI’ın yaptığı işleri MCP
+panelinde gösterir:
 
 ```bash
-cargo run -- tui --project termfx.project.json
+cargo run --bin termfx-studio
 ```
 
 HTTP endpoint:
@@ -243,7 +245,7 @@ HTTP endpoint destekleyen MCP client’larda örnek konfigürasyon:
 }
 ```
 
-TUI olmadan sadece HTTP MCP server test etmek için:
+Masaüstü uygulama olmadan sadece HTTP MCP server test etmek için:
 
 ```bash
 cargo run -- mcp-http --project termfx.project.json --port 4739
@@ -592,19 +594,20 @@ Sessizlik veya beat-sync analizi için plan üret:
 }
 ```
 
-## TUI
+## Masaüstü Arayüz
 
-TUI şu panellerden oluşur:
+Masaüstü çalışma alanı medya, viewer, inspector, timeline ve MCP panellerinden
+oluşur:
 
 ```text
 +--------------------------------------------------------------------------------+
-| Project: TermFX       FPS: 30       Render: idle       MCP: connected           |
+| TermFX Studio         Home  Save  Render  Start MCP          1920 x 1080 30 fps |
 +----------------------+------------------------------------+--------------------+
-| Project Assets       | Video Preview                      | Inspector          |
-| - shot_01.mp4        | +---------------- preview --------+ | Track: V1          |
-| - music.wav          | | ASCII/sixel/mpv preview         | | Clip params        |
-| - logo.png           | | waveform/cache thumbnails       | | Effects: s_shake   |
-|                      | +---------------------------------+ | Text/color/fade     |
+| Media                | Viewer                             | Inspector          |
+| - shot_01.mp4        | +------------- frame ------------+ | Clip               |
+| - music.wav          | | selected clip summary          | | Effects            |
+| - logo.png           | | render/open output controls    | | Keyframes          |
+|                      | +---------------------------------+ | Project / MCP       |
 +----------------------+------------------------------------+--------------------+
 | Timeline & Layers                                                             |
 | time    |0------------------------------|-----------------------------------> |
@@ -612,19 +615,16 @@ TUI şu panellerden oluşur:
 | V1      |intro############....broll#############....outro########..............|
 | A1      |music================================================================|
 +--------------------------------------------------------------------------------+
-| AI / MCP  list_media ok | apply_effect s_shake queued | render 42%             |
+| MCP  list_media ok | apply_effect s_shake queued | render ready                 |
 +--------------------------------------------------------------------------------+
 ```
-
-Kısayollar:
-
-- `q`: çıkış
-- `up/down`: track seçimi
 
 ## Proje Dosya Yapısı
 
 ```text
 src/
+  bin/
+    termfx-studio.rs   Native masaüstü uygulama giriş noktası
   core/
     effect.rs          Efekt, easing ve keyframe graph veri tipleri
     media.rs           Medya asset modeli
@@ -639,10 +639,12 @@ src/
     ffmpeg.rs          FFmpeg command ve filtergraph builder
     filtergraph.rs     Escaping ve zaman yardımcıları
     progress.rs        Render progress modeli
+  desktop/
+    mod.rs             Masaüstü uygulama, proje hub, editör panelleri, MCP aktivitesi
   tui/
-    app.rs             Terminal lifecycle ve event loop
-    layout.rs          TUI panel yerleşimi
-    timeline_widget.rs Timeline çizimi
+    app.rs             Opsiyonel eski text UI lifecycle ve event loop
+    layout.rs          Opsiyonel eski text UI panel yerleşimi
+    timeline_widget.rs Opsiyonel eski timeline çizimi
   project.rs           JSON proje modeli
   main.rs              CLI giriş noktası
 ```
