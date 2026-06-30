@@ -1,10 +1,12 @@
 /target/
 /.idea/
 /.vscode/
+.DS_Store
 *.mp4
 *.mov
 *.mkv
 *.wav
 *.aac
 *.log
+*.mcp.log.jsonl
 termfx.project.json

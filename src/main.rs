@@ -1,8 +1,9 @@
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use termfx::core::media::AssetKind;
-use termfx::mcp::server::run_stdio_server;
+use termfx::mcp::server::{run_http_server, run_stdio_server};
 use termfx::project::Project;
 use termfx::render::ffmpeg::{RenderSettings, build_ffmpeg_command};
 use tracing_subscriber::EnvFilter;
@@ -25,7 +26,7 @@ enum Command {
         project: PathBuf,
     },
     AddMedia {
-        #[arg(long)]
+        #[arg(long, default_value = "termfx.project.json")]
         project: PathBuf,
         #[arg(long)]
         path: PathBuf,
@@ -35,7 +36,7 @@ enum Command {
         name: Option<String>,
     },
     AddClip {
-        #[arg(long)]
+        #[arg(long, default_value = "termfx.project.json")]
         project: PathBuf,
         #[arg(long)]
         media_id: Uuid,
@@ -49,10 +50,20 @@ enum Command {
     Tui {
         #[arg(long, default_value = "termfx.project.json")]
         project: PathBuf,
+        #[arg(long, default_value_t = 4739)]
+        mcp_port: u16,
+        #[arg(long)]
+        no_mcp: bool,
     },
     Mcp {
         #[arg(long, default_value = "termfx.project.json")]
         project: PathBuf,
+    },
+    McpHttp {
+        #[arg(long, default_value = "termfx.project.json")]
+        project: PathBuf,
+        #[arg(long, default_value_t = 4739)]
+        port: u16,
     },
     Render {
         #[arg(long, default_value = "termfx.project.json")]
@@ -121,12 +132,19 @@ async fn main() -> anyhow::Result<()> {
             loaded.save(&project)?;
             println!("Added clip {}", clip_id);
         }
-        Command::Tui { project } => {
-            let loaded = Project::load(&project)?;
-            termfx::tui::app::run(loaded)?;
+        Command::Tui {
+            project,
+            mcp_port,
+            no_mcp,
+        } => {
+            termfx::tui::app::run(project, !no_mcp, mcp_port)?;
         }
         Command::Mcp { project } => {
             run_stdio_server(project).await?;
+        }
+        Command::McpHttp { project, port } => {
+            let address = SocketAddr::from(([127, 0, 0, 1], port));
+            run_http_server(project, address).await?;
         }
         Command::Render {
             project,

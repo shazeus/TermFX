@@ -19,8 +19,8 @@ TermFX üç ana problemi çözer:
 - **Efekt ve compositing:** Yazı katmanı, fade, black-white, glitch ve
   `s_shake` benzeri hareket efektlerini FFmpeg filtergraph ile üretme.
 - **AI entegrasyonu:** Claude, ChatGPT veya başka bir MCP client’ın projedeki
-  medyaları listelemesi, kesim yapması ve efekt uygulaması için stdio tabanlı
-  JSON-RPC MCP server sağlama.
+  medyaları listelemesi, kesim yapması ve efekt uygulaması için stdio MCP veya
+  TUI ile birlikte açılan yerel HTTP MCP endpoint’i sağlama.
 
 Bu repo şu an üretime yakın bir çekirdek iskeleti sunar: proje formatı, timeline
 modeli, FFmpeg komut üretimi, TUI ekranı ve MCP tool handler’ları çalışır
@@ -60,6 +60,7 @@ durumdadır.
   - `s_shake`
   - `text_overlay`
 - Ratatui/Crossterm ile terminal arayüzü
+- TUI açıldığında otomatik başlayan HTTP MCP endpoint’i ve canlı AI aktivite paneli
 - MCP stdio server:
   - `list_media`
   - `list_effects`
@@ -183,6 +184,20 @@ Terminal arayüzünü aç:
 cargo run -- tui --project termfx.project.json
 ```
 
+Varsayılan olarak TUI aynı anda şu MCP endpoint’ini de açar:
+
+```text
+http://127.0.0.1:4739/mcp
+```
+
+Alttaki `AI / MCP` panelinde endpoint, proje yolu, MCP log dosyası ve AI’ın son
+tool çağrıları görünür. Portu değiştirmek veya gömülü MCP’yi kapatmak için:
+
+```bash
+cargo run -- tui --project termfx.project.json --mcp-port 4740
+cargo run -- tui --project termfx.project.json --no-mcp
+```
+
 FFmpeg komutunu render etmeden gör:
 
 ```bash
@@ -202,7 +217,40 @@ cargo run -- render \
 
 ## MCP Server Kullanımı
 
-TermFX MCP server’ı stdio üzerinden çalışır:
+Normal interaktif kullanımda sadece TUI’yi başlatman yeterli. TUI, mevcut
+projeyi yerel HTTP üzerinden MCP olarak açar ve AI’ın yaptığı işleri terminalde
+gösterir:
+
+```bash
+cargo run -- tui --project termfx.project.json
+```
+
+HTTP endpoint:
+
+```text
+http://127.0.0.1:4739/mcp
+```
+
+HTTP endpoint destekleyen MCP client’larda örnek konfigürasyon:
+
+```json
+{
+  "mcpServers": {
+    "termfx": {
+      "url": "http://127.0.0.1:4739/mcp"
+    }
+  }
+}
+```
+
+TUI olmadan sadece HTTP MCP server test etmek için:
+
+```bash
+cargo run -- mcp-http --project termfx.project.json --port 4739
+```
+
+Bazı MCP client’lar sadece stdio destekler. Onlar için TermFX MCP server’ı
+stdio üzerinden de çalışır:
 
 ```bash
 cargo run -- mcp --project termfx.project.json

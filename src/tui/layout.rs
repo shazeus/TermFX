@@ -17,7 +17,7 @@ pub fn render(frame: &mut Frame, app: &AppState) {
             Constraint::Length(3),
             Constraint::Min(10),
             Constraint::Length(12),
-            Constraint::Length(3),
+            Constraint::Length(8),
         ])
         .split(area);
 
@@ -48,9 +48,10 @@ fn header(app: &AppState) -> Paragraph<'static> {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::raw(format!(
-            "  project={}  fps={}",
+            "  project={}  fps={}  mcp={}",
             app.project.name,
-            app.project.timeline.fps.expression()
+            app.project.timeline.fps.expression(),
+            app.mcp_endpoint.as_deref().unwrap_or("off")
         )),
     ]))
     .block(Block::default().borders(Borders::ALL).title("Project"))
@@ -152,6 +153,23 @@ fn timeline(app: &AppState, width: u16) -> Paragraph<'static> {
 }
 
 fn status(app: &AppState) -> Paragraph<'static> {
-    Paragraph::new(app.status.clone())
+    let mut lines = vec![
+        Line::from(format!(
+            "Endpoint: {}",
+            app.mcp_endpoint
+                .as_deref()
+                .unwrap_or("disabled; start stdio MCP with `termfx mcp`")
+        )),
+        Line::from(format!("Project: {}", app.project_path.display())),
+        Line::from(format!("Log: {}", app.mcp_log_path.display())),
+        Line::from(format!("Status: {}", app.status)),
+    ];
+
+    for event in &app.mcp_events {
+        lines.push(Line::from(event.clone()));
+    }
+
+    Paragraph::new(lines)
         .block(Block::default().borders(Borders::ALL).title("AI / MCP"))
+        .wrap(Wrap { trim: true })
 }

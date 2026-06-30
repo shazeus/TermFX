@@ -1,5 +1,8 @@
-use std::path::PathBuf;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -17,15 +20,19 @@ use crate::error::{Result, TermFxError};
 use crate::project::Project;
 use crate::render::ffmpeg::{RenderSettings, build_ffmpeg_command};
 
+#[derive(Clone)]
 pub struct ToolRegistry {
     project_path: PathBuf,
+    log_path: PathBuf,
     project: Arc<Mutex<Project>>,
 }
 
 impl ToolRegistry {
     pub fn new(project_path: PathBuf, project: Arc<Mutex<Project>>) -> Self {
+        let log_path = mcp_log_path(&project_path);
         Self {
             project_path,
+            log_path,
             project,
         }
     }
@@ -379,7 +386,10 @@ impl ToolRegistry {
     pub async fn call_tool(&self, params: Value) -> Result<Value> {
         let params: ToolCallParams = serde_json::from_value(params)
             .map_err(|error| TermFxError::InvalidMcpRequest(error.to_string()))?;
-        match params.name.as_str() {
+        let arguments_for_log = params.arguments.clone();
+        self.log_tool_call(&params.name, "started", arguments_for_log.as_ref(), None);
+
+        let result = match params.name.as_str() {
             "list_media" => self.list_media().await,
             "list_effects" => self.list_effects().await,
             "import_media" => {
@@ -469,6 +479,41 @@ impl ToolRegistry {
             other => Err(TermFxError::InvalidMcpRequest(format!(
                 "unknown tool: {other}"
             ))),
+        };
+
+        match &result {
+            Ok(_) => self.log_tool_call(&params.name, "ok", None, None),
+            Err(error) => self.log_tool_call(&params.name, "error", None, Some(&error.to_string())),
+        }
+
+        result
+    }
+
+    fn log_tool_call(
+        &self,
+        tool: &str,
+        status: &str,
+        arguments: Option<&Value>,
+        error: Option<&str>,
+    ) {
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_millis())
+            .unwrap_or_default();
+        let line = json!({
+            "timestamp_ms": timestamp_ms,
+            "tool": tool,
+            "status": status,
+            "arguments": arguments,
+            "error": error,
+        });
+
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.log_path)
+        {
+            let _ = writeln!(file, "{}", line);
         }
     }
 
@@ -946,6 +991,14 @@ impl ToolRegistry {
         );
         Ok(tool_text(json!(plan)))
     }
+}
+
+pub fn mcp_log_path(project_path: &Path) -> PathBuf {
+    let file_name = project_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("termfx.project.json");
+    project_path.with_file_name(format!("{file_name}.mcp.log.jsonl"))
 }
 
 #[derive(Debug, Deserialize)]

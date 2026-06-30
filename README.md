@@ -21,7 +21,7 @@ TermFX focuses on three editing workflows:
 - **Effects and compositing:** Build FFmpeg complex filtergraphs for text
   overlays, fades, black-and-white, glitch, and `s_shake`-style motion effects.
 - **AI control:** Let Claude, ChatGPT, or another MCP client operate the editor
-  through a stdio JSON-RPC server.
+  through stdio MCP or the embedded HTTP MCP endpoint that starts with the TUI.
 
 The current repository is a production-oriented core implementation: project
 serialization, the timeline model, FFmpeg command generation, the terminal UI,
@@ -61,6 +61,7 @@ and MCP tool handlers are already wired together.
   - `s_shake`
   - `text_overlay`
 - Terminal UI built with Ratatui and Crossterm
+- TUI-started HTTP MCP endpoint with a live AI activity panel
 - MCP stdio server:
   - `list_media`
   - `list_effects`
@@ -184,6 +185,21 @@ Open the terminal UI:
 cargo run -- tui --project termfx.project.json
 ```
 
+By default the TUI also starts an MCP endpoint at:
+
+```text
+http://127.0.0.1:4739/mcp
+```
+
+The bottom `AI / MCP` panel shows the endpoint, the project path, the MCP log
+file, and the latest AI tool calls. Use a different port or disable embedded MCP
+when needed:
+
+```bash
+cargo run -- tui --project termfx.project.json --mcp-port 4740
+cargo run -- tui --project termfx.project.json --no-mcp
+```
+
 Preview the FFmpeg command without rendering:
 
 ```bash
@@ -203,7 +219,39 @@ cargo run -- render \
 
 ## MCP Server
 
-Run the TermFX MCP server over stdio:
+The normal interactive workflow is to start the TUI. It automatically exposes
+the current project over local HTTP and shows AI activity in the terminal:
+
+```bash
+cargo run -- tui --project termfx.project.json
+```
+
+HTTP endpoint:
+
+```text
+http://127.0.0.1:4739/mcp
+```
+
+For MCP clients that support HTTP endpoints, configure the server URL:
+
+```json
+{
+  "mcpServers": {
+    "termfx": {
+      "url": "http://127.0.0.1:4739/mcp"
+    }
+  }
+}
+```
+
+You can also run the same HTTP server without the TUI for testing:
+
+```bash
+cargo run -- mcp-http --project termfx.project.json --port 4739
+```
+
+Some MCP clients only support stdio. For those clients, run the TermFX MCP
+server over stdio:
 
 ```bash
 cargo run -- mcp --project termfx.project.json
