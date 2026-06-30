@@ -79,6 +79,11 @@ Efekt motoru clip bazli stack mantigiyla calisir. Her `Clip` bir veya daha fazla
 Mevcut efektler:
 
 - `BlackWhite`: FFmpeg `hue=s=0`
+- `Sepia`, `Invert`, `BrightnessContrast`, `HueRotate`: renk duzenleme
+- `GaussianBlur`, `BoxBlur`, `Sharpen`: blur/detail
+- `Vignette`, `ChromaticAberration`, `LensDistortion`: lens gorunumu
+- `FilmGrain`, `Pixelate`, `Posterize`, `EdgeDetect`: stilize efektler
+- `Letterbox`, `Border`: layout/cerceve efektleri
 - `Glitch`: `rgbashift` + `noise`
 - `FadeIn`: alpha fade-in
 - `FadeOut`: alpha fade-out
@@ -91,9 +96,12 @@ Mevcut efektler:
 2. `crop` filtresinin `x` ve `y` ifadeleri zamanla sin/cos uzerinden oynatilir.
 3. Amplitude, frequency ve seed parametreleri MCP uzerinden degistirilebilir.
 
-Bu yapi After Effects'teki keyframe mantigina genisletilebilir. `TransformKeyframe`
-tipi bunun icin eklendi; sonraki adim lineer/cubic interpolation ile `overlay` veya
-`crop` expression uretmektir.
+After Effects tarzi transform keyframe modeli aktiftir. Her clip `TransformKeyframe`
+listesi tasir; `x`, `y`, `scale`, `rotation_degrees`, `opacity` ve `volume`
+degerleri `hold`, `linear`, `ease_in`, `ease_out`, `ease_in_out` easing tipleriyle
+saklanir. Render tarafinda `x`/`y` overlay expression'a, `scale` ve
+`rotation_degrees` FFmpeg filter expression'a donusur. MCP `keyframe_graph` tool'u
+ayni veriyi JSON, ASCII veya SVG graph olarak dondurur.
 
 ### 2.3 Sequencer ve Compositor Cakismadan Nasil Calisir?
 
@@ -592,19 +600,20 @@ net adimlar:
    okunmali.
 2. Proxy/cache sistemi: buyuk medyalar icin preview resolution ve waveform cache.
 3. Render queue: background process, progress parse, cancel/retry, job history.
-4. Keyframe interpolation: `TransformKeyframe` uzerinden bezier/ease curve.
-5. Text engine: font discovery, fallback font, shadow/stroke, safe-area presets.
-6. Smart edit apply modu: `smart_edit` planini gercek timeline mutation'a donusturme.
-7. MCP kaynaklari: proje snapshot'i `resources/read` ile sunulabilir.
-8. Guvenlik: MCP tool confirmation policy, project root sandbox, path allowlist.
+4. Text engine: font discovery, fallback font, shadow/stroke, safe-area presets.
+5. Smart edit apply modu: `smart_edit` planini gercek timeline mutation'a donusturme.
+6. MCP kaynaklari: proje snapshot'i `resources/read` ile sunulabilir.
+7. Guvenlik: MCP tool confirmation policy, project root sandbox, path allowlist.
 
 ## 8. Dogrulama
 
 Mevcut testler:
 
 - ripple delete clip'i ikiye boler ve sag parcayi kaydirir.
+- clip split source offset'lerini korur; track, marker ve keyframe mutasyonlari test edilir.
 - FFmpeg filtergraph `s_shake`, `drawtext` ve audio mix uretir.
-- MCP tool listesi gerekli tool'lari expose eder.
+- FFmpeg filtergraph keyframed overlay, scale/rotation expression ve speed/atempo uretir.
+- MCP tool listesi gerekli tool'lari expose eder; keyframe graph ASCII/SVG uretimi test edilir.
 - TUI timeline satiri clip adini terminalde gosterir.
 
 Calistirma:

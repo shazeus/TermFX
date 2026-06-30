@@ -33,6 +33,9 @@ durumdadır.
 - Frame tabanlı timeline modeli
 - Video/audio track ayrımı
 - Clip ekleme, trim ve ripple delete
+- Premiere tarzı clip speed, track mute/lock ve timeline marker desteği
+- After Effects tarzı easing destekli transform keyframe’leri
+- Keyframe graph çıktısı: JSON, ASCII veya SVG
 - Efekt stack’i:
   - `black_and_white`
   - `sepia`
@@ -71,6 +74,13 @@ durumdadır.
   - `move_clip`
   - `split_clip`
   - `remove_clip`
+  - `add_keyframe`
+  - `remove_keyframe`
+  - `keyframe_graph`
+  - `add_marker`
+  - `remove_marker`
+  - `add_track`
+  - `set_track_state`
   - `set_timeline_settings`
   - `render_command`
   - `smart_edit`
@@ -349,7 +359,7 @@ Clip’i timeline zamanında böl:
 }
 ```
 
-Clip zamanlama ve mix parametrelerini güncelle:
+Clip zamanlama, speed ve mix parametrelerini güncelle:
 
 ```json
 {
@@ -360,8 +370,72 @@ Clip zamanlama ve mix parametrelerini güncelle:
     "name": "update_clip",
     "arguments": {
       "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "speed": 1.25,
       "opacity": 0.85,
       "volume": 0.6
+    }
+  }
+}
+```
+
+Easing destekli transform keyframe ekle:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 14,
+  "method": "tools/call",
+  "params": {
+    "name": "add_keyframe",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "time_seconds": 1,
+      "x": 120,
+      "y": 80,
+      "scale": 0.85,
+      "rotation_degrees": 8,
+      "opacity": 1,
+      "volume": 1,
+      "easing": "ease_in_out"
+    }
+  }
+}
+```
+
+Keyframe graph’ını SVG olarak üret:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 15,
+  "method": "tools/call",
+  "params": {
+    "name": "keyframe_graph",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "property": "x",
+      "format": "svg",
+      "width": 640,
+      "height": 240
+    }
+  }
+}
+```
+
+Timeline marker ekle:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 16,
+  "method": "tools/call",
+  "params": {
+    "name": "add_marker",
+    "arguments": {
+      "time_seconds": 8.5,
+      "label": "Beat drop",
+      "color": "cyan",
+      "note": "Burada b-roll kes"
     }
   }
 }
@@ -504,11 +578,11 @@ Kısayollar:
 ```text
 src/
   core/
-    effect.rs          Efekt modeli ve keyframe veri tipleri
+    effect.rs          Efekt, easing ve keyframe graph veri tipleri
     media.rs           Medya asset modeli
     smart.rs           Smart edit analiz planı
     time.rs            FPS ve frame/saniye dönüşümü
-    timeline.rs        Track, clip, trim ve ripple delete
+    timeline.rs        Track, clip, marker, keyframe, trim ve ripple delete
   mcp/
     protocol.rs        JSON-RPC request/response tipleri
     server.rs          MCP stdio server loop
@@ -554,13 +628,12 @@ cargo run -- render \
 
 ## Durum
 
-Bu proje aktif geliştirme aşamasındadır. Çekirdek timeline, MCP tool handler’ları
-ve FFmpeg render path’i çalışır durumdadır. Sıradaki üretim adımları:
+Bu proje aktif geliştirme aşamasındadır. Çekirdek timeline, MCP tool handler’ları,
+keyframe graph ve FFmpeg render path’i çalışır durumdadır. Sıradaki üretim adımları:
 
 - FFprobe ile otomatik medya metadata okuma
 - Background render queue ve progress parsing
 - Preview cache, waveform ve proxy sistemi
-- Keyframe interpolation
 - Smart edit planlarını gerçek timeline mutation’a dönüştürme
 - MCP resource desteği
 

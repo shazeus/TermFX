@@ -251,10 +251,101 @@ pub fn effect_library() -> Vec<EffectSpec> {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TransformKeyframe {
+    #[serde(default = "new_uuid")]
+    pub id: Uuid,
     pub frame: Frame,
     pub x: f32,
     pub y: f32,
+    #[serde(default = "default_one")]
     pub scale: f32,
+    #[serde(default)]
     pub rotation_degrees: f32,
+    #[serde(default = "default_one")]
     pub opacity: f32,
+    #[serde(default = "default_one")]
+    pub volume: f32,
+    #[serde(default)]
+    pub easing: KeyframeEasing,
+}
+
+impl TransformKeyframe {
+    pub fn new(frame: Frame) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            frame,
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            rotation_degrees: 0.0,
+            opacity: 1.0,
+            volume: 1.0,
+            easing: KeyframeEasing::Linear,
+        }
+    }
+
+    pub fn value(&self, property: KeyframeProperty) -> f32 {
+        match property {
+            KeyframeProperty::X => self.x,
+            KeyframeProperty::Y => self.y,
+            KeyframeProperty::Scale => self.scale,
+            KeyframeProperty::RotationDegrees => self.rotation_degrees,
+            KeyframeProperty::Opacity => self.opacity,
+            KeyframeProperty::Volume => self.volume,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyframeEasing {
+    Hold,
+    #[default]
+    Linear,
+    EaseIn,
+    EaseOut,
+    EaseInOut,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyframeProperty {
+    X,
+    Y,
+    Scale,
+    RotationDegrees,
+    Opacity,
+    Volume,
+}
+
+impl KeyframeProperty {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "x" => Some(Self::X),
+            "y" => Some(Self::Y),
+            "scale" => Some(Self::Scale),
+            "rotation_degrees" | "rotation" => Some(Self::RotationDegrees),
+            "opacity" => Some(Self::Opacity),
+            "volume" => Some(Self::Volume),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            KeyframeProperty::X => "x",
+            KeyframeProperty::Y => "y",
+            KeyframeProperty::Scale => "scale",
+            KeyframeProperty::RotationDegrees => "rotation_degrees",
+            KeyframeProperty::Opacity => "opacity",
+            KeyframeProperty::Volume => "volume",
+        }
+    }
+}
+
+fn new_uuid() -> Uuid {
+    Uuid::new_v4()
+}
+
+fn default_one() -> f32 {
+    1.0
 }

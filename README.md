@@ -34,6 +34,9 @@ and MCP tool handlers are already wired together.
 - Frame-based timeline model
 - Separate video and audio tracks
 - Clip append, trim, and ripple delete
+- Premiere-style clip speed changes, track mute/lock, and timeline markers
+- After Effects-style transform keyframes with easing
+- Keyframe graph export as JSON, ASCII, or SVG
 - Effect stack support:
   - `black_and_white`
   - `sepia`
@@ -72,6 +75,13 @@ and MCP tool handlers are already wired together.
   - `move_clip`
   - `split_clip`
   - `remove_clip`
+  - `add_keyframe`
+  - `remove_keyframe`
+  - `keyframe_graph`
+  - `add_marker`
+  - `remove_marker`
+  - `add_track`
+  - `set_track_state`
   - `set_timeline_settings`
   - `render_command`
   - `smart_edit`
@@ -350,7 +360,7 @@ Split a clip at a timeline timestamp:
 }
 ```
 
-Update clip timing and mix parameters:
+Update clip timing, speed, and mix parameters:
 
 ```json
 {
@@ -361,8 +371,72 @@ Update clip timing and mix parameters:
     "name": "update_clip",
     "arguments": {
       "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "speed": 1.25,
       "opacity": 0.85,
       "volume": 0.6
+    }
+  }
+}
+```
+
+Add transform keyframes with easing:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 14,
+  "method": "tools/call",
+  "params": {
+    "name": "add_keyframe",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "time_seconds": 1,
+      "x": 120,
+      "y": 80,
+      "scale": 0.85,
+      "rotation_degrees": 8,
+      "opacity": 1,
+      "volume": 1,
+      "easing": "ease_in_out"
+    }
+  }
+}
+```
+
+Export a keyframe graph as SVG:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 15,
+  "method": "tools/call",
+  "params": {
+    "name": "keyframe_graph",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "property": "x",
+      "format": "svg",
+      "width": 640,
+      "height": 240
+    }
+  }
+}
+```
+
+Add a timeline marker:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 16,
+  "method": "tools/call",
+  "params": {
+    "name": "add_marker",
+    "arguments": {
+      "time_seconds": 8.5,
+      "label": "Beat drop",
+      "color": "cyan",
+      "note": "Cut b-roll here"
     }
   }
 }
@@ -506,11 +580,11 @@ Shortcuts:
 ```text
 src/
   core/
-    effect.rs          Effect model and keyframe data types
+    effect.rs          Effect, easing, and keyframe graph data types
     media.rs           Media asset model
     smart.rs           Smart edit analysis plan
     time.rs            FPS and frame/seconds conversion
-    timeline.rs        Tracks, clips, trim, and ripple delete
+    timeline.rs        Tracks, clips, markers, keyframes, trim, and ripple delete
   mcp/
     protocol.rs        JSON-RPC request/response types
     server.rs          MCP stdio server loop
@@ -556,13 +630,13 @@ cargo run -- render \
 
 ## Status
 
-TermFX is in active development. The core timeline, MCP tool handlers, and
-FFmpeg render path are functional. Planned production work includes:
+TermFX is in active development. The core timeline, MCP tool handlers,
+keyframe graphing, and FFmpeg render path are functional. Planned production
+work includes:
 
 - Automatic media metadata extraction with FFprobe
 - Background render queue and progress parsing
 - Preview cache, waveform, and proxy systems
-- Keyframe interpolation
 - Turning smart edit plans into real timeline mutations
 - MCP resource support
 

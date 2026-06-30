@@ -4,7 +4,9 @@ use std::process::Command;
 
 use uuid::Uuid;
 
-use crate::core::effect::{Effect, EffectInstance};
+use crate::core::effect::{
+    Effect, EffectInstance, KeyframeEasing, KeyframeProperty, TransformKeyframe,
+};
 use crate::core::media::AssetKind;
 use crate::core::time::{Fps, Frame};
 use crate::core::timeline::{Clip, ClipSource, Timeline, TrackKind};
@@ -117,9 +119,11 @@ pub fn build_ffmpeg_command(
         )?);
 
         let next_label = format!("vstack{}", clip_number);
+        let x_expression = overlay_keyframe_expression(clip, KeyframeProperty::X, &settings, 0.0);
+        let y_expression = overlay_keyframe_expression(clip, KeyframeProperty::Y, &settings, 0.0);
         graph.push(format!(
-            "[{}][{}]overlay=x=0:y=0:eof_action=pass:shortest=0[{}]",
-            previous_label, clip_label, next_label
+            "[{}][{}]overlay=x='{}':y='{}':eval=frame:eof_action=pass:shortest=0[{}]",
+            previous_label, clip_label, x_expression, y_expression, next_label
         ));
         previous_label = next_label;
     }
@@ -204,14 +208,15 @@ fn build_video_clip_chain(
             let index = input_index
                 .get(media_id)
                 .ok_or(TermFxError::MissingMedia(*media_id))?;
+            let trim_duration = duration * clip.speed.max(0.01) as f64;
             vec![
                 format!(
                     "[{}:v]trim=start={:.6}:duration={:.6}",
                     index,
                     seconds(settings.fps, clip.trim_start_frame),
-                    duration
+                    trim_duration
                 ),
-                "setpts=PTS-STARTPTS".to_string(),
+                format!("setpts=(PTS-STARTPTS)/{:.6}", clip.speed.max(0.01)),
                 format!(
                     "scale={}x{}:force_original_aspect_ratio=decrease",
                     settings.width, settings.height
@@ -239,6 +244,8 @@ fn build_video_clip_chain(
         ],
     };
 
+    append_keyframed_transform_filters(&mut filters, clip, settings);
+
     for effect in clip.effects.iter().filter(|effect| effect.enabled) {
         append_effect_filters(&mut filters, effect, settings, clip.duration_frames);
     }
@@ -257,6 +264,154 @@ fn build_video_clip_chain(
         chain = format!("{}", chain);
     }
     Ok(format!("{}[{}]", chain, output_label).replace(&format!("[vclip{}][", clip_number), "["))
+}
+
+fn append_keyframed_transform_filters(
+    filters: &mut Vec<String>,
+    clip: &Clip,
+    settings: &RenderSettings,
+) {
+    if has_keyframes_for(clip, KeyframeProperty::Scale) {
+        let scale = local_keyframe_expression(clip, KeyframeProperty::Scale, settings, 1.0);
+        filters.push(format!(
+            "scale=w='trunc(iw*({})/2)*2':h='trunc(ih*({})/2)*2':eval=frame",
+            scale, scale
+        ));
+    }
+
+    if has_keyframes_for(clip, KeyframeProperty::RotationDegrees) {
+        let rotation =
+            local_keyframe_expression(clip, KeyframeProperty::RotationDegrees, settings, 0.0);
+        filters.push(format!(
+            "rotate=a='({})*PI/180':c=black@0:ow=iw:oh=ih",
+            rotation
+        ));
+    }
+}
+
+fn overlay_keyframe_expression(
+    clip: &Clip,
+    property: KeyframeProperty,
+    settings: &RenderSettings,
+    default: f32,
+) -> String {
+    keyframe_expression(
+        &clip.keyframes,
+        property,
+        settings,
+        default,
+        seconds(settings.fps, clip.start_frame),
+    )
+}
+
+fn local_keyframe_expression(
+    clip: &Clip,
+    property: KeyframeProperty,
+    settings: &RenderSettings,
+    default: f32,
+) -> String {
+    keyframe_expression(&clip.keyframes, property, settings, default, 0.0)
+}
+
+fn has_keyframes_for(clip: &Clip, property: KeyframeProperty) -> bool {
+    clip.keyframes.iter().any(|keyframe| {
+        (keyframe.value(property) - default_keyframe_value(property)).abs() > f32::EPSILON
+    })
+}
+
+fn default_keyframe_value(property: KeyframeProperty) -> f32 {
+    match property {
+        KeyframeProperty::Scale | KeyframeProperty::Opacity | KeyframeProperty::Volume => 1.0,
+        KeyframeProperty::X | KeyframeProperty::Y | KeyframeProperty::RotationDegrees => 0.0,
+    }
+}
+
+fn keyframe_expression(
+    keyframes: &[TransformKeyframe],
+    property: KeyframeProperty,
+    settings: &RenderSettings,
+    default: f32,
+    time_offset_seconds: f64,
+) -> String {
+    if keyframes.is_empty() {
+        return format_float(default as f64);
+    }
+
+    let mut sorted = keyframes.to_vec();
+    sorted.sort_by_key(|keyframe| (keyframe.frame, keyframe.id));
+    if sorted.len() == 1 {
+        return format_float(sorted[0].value(property) as f64);
+    }
+
+    let first_time = time_offset_seconds + seconds(settings.fps, sorted[0].frame);
+    let first_value = sorted[0].value(property) as f64;
+    let mut expression = format_float(
+        sorted
+            .last()
+            .map(|keyframe| keyframe.value(property) as f64)
+            .unwrap_or(default as f64),
+    );
+
+    for pair in sorted.windows(2).rev() {
+        let start = &pair[0];
+        let end = &pair[1];
+        let start_time = time_offset_seconds + seconds(settings.fps, start.frame);
+        let end_time = time_offset_seconds + seconds(settings.fps, end.frame);
+        let start_value = start.value(property) as f64;
+        let end_value = end.value(property) as f64;
+        let segment = segment_expression(
+            "t",
+            start_time,
+            end_time,
+            start_value,
+            end_value,
+            start.easing,
+        );
+        expression = format!("if(lte(t,{end_time:.6}),{segment},{expression})");
+    }
+
+    format!(
+        "if(lte(t,{first_time:.6}),{},{} )",
+        format_float(first_value),
+        expression
+    )
+    .replace(" ", "")
+}
+
+fn segment_expression(
+    time_variable: &str,
+    start_time: f64,
+    end_time: f64,
+    start_value: f64,
+    end_value: f64,
+    easing: KeyframeEasing,
+) -> String {
+    let duration = (end_time - start_time).max(0.000_001);
+    if easing == KeyframeEasing::Hold {
+        return format_float(start_value);
+    }
+
+    let progress = format!("(({time_variable}-{start_time:.6})/{duration:.6})");
+    let eased = match easing {
+        KeyframeEasing::Hold => "0".to_string(),
+        KeyframeEasing::Linear => progress,
+        KeyframeEasing::EaseIn => format!("pow({progress},2)"),
+        KeyframeEasing::EaseOut => format!("1-pow(1-({progress}),2)"),
+        KeyframeEasing::EaseInOut => {
+            format!("if(lt({0},0.5),2*pow({0},2),1-pow(-2*{0}+2,2)/2)", progress)
+        }
+    };
+
+    format!(
+        "{}+({})*({})",
+        format_float(start_value),
+        format_float(end_value - start_value),
+        eased
+    )
+}
+
+fn format_float(value: f64) -> String {
+    format!("{value:.6}")
 }
 
 fn append_effect_filters(
@@ -459,11 +614,15 @@ fn build_audio_graph(
             .ok_or(TermFxError::MissingMedia(media_id))?;
         let label = format!("a{}", audio_number);
         let delay_ms = (settings.fps.seconds_from_frames(clip.start_frame) * 1_000.0).round();
+        let trim_duration =
+            seconds(settings.fps, clip.duration_frames) * clip.speed.max(0.01) as f64;
+        let atempo = atempo_filter_chain(clip.speed.max(0.01));
         graph.push(format!(
-            "[{}:a]atrim=start={:.6}:duration={:.6},asetpts=PTS-STARTPTS,volume={:.3},adelay={}:all=1[{}]",
+            "[{}:a]atrim=start={:.6}:duration={:.6},asetpts=PTS-STARTPTS{},volume={:.3},adelay={}:all=1[{}]",
             input,
             seconds(settings.fps, clip.trim_start_frame),
-            seconds(settings.fps, clip.duration_frames),
+            trim_duration,
+            atempo,
             clip.volume.max(0.0),
             delay_ms,
             label
@@ -489,6 +648,27 @@ fn build_audio_graph(
         audio_labels.len()
     ));
     Ok("aout".to_string())
+}
+
+fn atempo_filter_chain(speed: f32) -> String {
+    let mut remaining = speed.clamp(0.01, 100.0);
+    let mut filters = Vec::new();
+
+    while remaining > 2.0 {
+        filters.push("atempo=2.0".to_string());
+        remaining /= 2.0;
+    }
+
+    while remaining < 0.5 {
+        filters.push("atempo=0.5".to_string());
+        remaining /= 0.5;
+    }
+
+    filters.push(format!("atempo={:.6}", remaining));
+    filters
+        .into_iter()
+        .map(|filter| format!(",{filter}"))
+        .collect::<String>()
 }
 
 fn sorted_audio_clips(project: &Project) -> Vec<&Clip> {
@@ -518,7 +698,7 @@ fn shell_quote(value: &str) -> String {
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use crate::core::effect::Effect;
+    use crate::core::effect::{Effect, TransformKeyframe};
     use crate::core::media::AssetKind;
 
     use super::*;
@@ -528,6 +708,22 @@ mod tests {
         let mut project = Project::new("demo", PathBuf::from("."));
         let asset = project.add_media(PathBuf::from("shot.mp4"), AssetKind::Video, None);
         let clip_id = project.add_media_clip(asset.id, 0, 0, 90).unwrap();
+        let mut start = TransformKeyframe::new(0);
+        start.x = 0.0;
+        start.scale = 1.0;
+        let mut end = TransformKeyframe::new(30);
+        end.x = 120.0;
+        end.scale = 0.8;
+        project
+            .timeline
+            .clip_mut(clip_id)
+            .unwrap()
+            .add_keyframe(start);
+        project
+            .timeline
+            .clip_mut(clip_id)
+            .unwrap()
+            .add_keyframe(end);
         project
             .apply_effect(
                 clip_id,
@@ -562,6 +758,8 @@ mod tests {
 
         assert!(command.filtergraph.contains("crop=1920:1080"));
         assert!(command.filtergraph.contains("pad=1920:1080"));
+        assert!(command.filtergraph.contains("overlay=x='if("));
+        assert!(command.filtergraph.contains("eval=frame"));
         assert!(command.filtergraph.contains("drawtext=text='Launch'"));
         assert!(command.filtergraph.contains("amix=inputs=1"));
     }

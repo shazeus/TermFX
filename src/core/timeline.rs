@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::error::{Result, TermFxError};
 
-use super::effect::EffectInstance;
+use super::effect::{EffectInstance, TransformKeyframe};
 use super::time::{Fps, Frame};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -20,6 +20,8 @@ pub struct Timeline {
     pub height: u32,
     pub sample_rate: u32,
     pub tracks: Vec<Track>,
+    #[serde(default)]
+    pub markers: Vec<TimelineMarker>,
 }
 
 impl Default for Timeline {
@@ -34,6 +36,7 @@ impl Default for Timeline {
                 Track::new(1, TrackKind::Video, "V2"),
                 Track::new(2, TrackKind::Audio, "A1"),
             ],
+            markers: Vec::new(),
         }
     }
 }
@@ -89,6 +92,80 @@ impl Timeline {
         track.clips.push(clip);
         track.clips.sort_by_key(|clip| (clip.start_frame, clip.id));
         Ok(id)
+    }
+
+    pub fn add_track(&mut self, kind: TrackKind, name: Option<String>) -> usize {
+        let index = self
+            .tracks
+            .iter()
+            .map(|track| track.index)
+            .max()
+            .map(|index| index + 1)
+            .unwrap_or(0);
+        let default_name = match kind {
+            TrackKind::Video => format!(
+                "V{}",
+                self.tracks.iter().filter(|t| t.kind == kind).count() + 1
+            ),
+            TrackKind::Audio => format!(
+                "A{}",
+                self.tracks.iter().filter(|t| t.kind == kind).count() + 1
+            ),
+        };
+        self.tracks
+            .push(Track::new(index, kind, name.unwrap_or(default_name)));
+        index
+    }
+
+    pub fn set_track_state(
+        &mut self,
+        track_index: usize,
+        muted: Option<bool>,
+        locked: Option<bool>,
+        name: Option<String>,
+    ) -> Result<()> {
+        let track = self.track_mut(track_index)?;
+        if let Some(muted) = muted {
+            track.muted = muted;
+        }
+        if let Some(locked) = locked {
+            track.locked = locked;
+        }
+        if let Some(name) = name {
+            track.name = name;
+        }
+        Ok(())
+    }
+
+    pub fn add_marker(
+        &mut self,
+        frame: Frame,
+        label: String,
+        color: Option<String>,
+        note: Option<String>,
+    ) -> Uuid {
+        let marker = TimelineMarker {
+            id: Uuid::new_v4(),
+            frame,
+            label,
+            color: color.unwrap_or_else(|| "yellow".to_string()),
+            note: note.unwrap_or_default(),
+        };
+        let id = marker.id;
+        self.markers.push(marker);
+        self.markers.sort_by_key(|marker| (marker.frame, marker.id));
+        id
+    }
+
+    pub fn remove_marker(&mut self, marker_id: Uuid) -> Result<TimelineMarker> {
+        let position = self
+            .markers
+            .iter()
+            .position(|marker| marker.id == marker_id)
+            .ok_or_else(|| {
+                TermFxError::InvalidMcpRequest(format!("missing marker: {marker_id}"))
+            })?;
+        Ok(self.markers.remove(position))
     }
 
     pub fn remove_clip(&mut self, clip_id: Uuid) -> Result<Clip> {
@@ -243,6 +320,15 @@ pub struct Track {
     pub clips: Vec<Clip>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TimelineMarker {
+    pub id: Uuid,
+    pub frame: Frame,
+    pub label: String,
+    pub color: String,
+    pub note: String,
+}
+
 impl Track {
     pub fn new(index: usize, kind: TrackKind, name: impl Into<String>) -> Self {
         Self {
@@ -267,7 +353,11 @@ pub struct Clip {
     pub trim_start_frame: Frame,
     pub opacity: f32,
     pub volume: f32,
+    #[serde(default = "default_speed")]
+    pub speed: f32,
     pub effects: Vec<EffectInstance>,
+    #[serde(default)]
+    pub keyframes: Vec<TransformKeyframe>,
 }
 
 impl Clip {
@@ -288,7 +378,9 @@ impl Clip {
             trim_start_frame: 0,
             opacity: 1.0,
             volume: 1.0,
+            speed: 1.0,
             effects: Vec::new(),
+            keyframes: Vec::new(),
         }
     }
 
@@ -308,13 +400,38 @@ impl Clip {
             trim_start_frame: 0,
             opacity: 1.0,
             volume: 0.0,
+            speed: 1.0,
             effects: Vec::new(),
+            keyframes: Vec::new(),
         }
     }
 
     pub fn end_frame(&self) -> Frame {
         self.start_frame + self.duration_frames
     }
+
+    pub fn add_keyframe(&mut self, keyframe: TransformKeyframe) -> Uuid {
+        let id = keyframe.id;
+        self.keyframes.push(keyframe);
+        self.keyframes
+            .sort_by_key(|keyframe| (keyframe.frame, keyframe.id));
+        id
+    }
+
+    pub fn remove_keyframe(&mut self, keyframe_id: Uuid) -> Result<TransformKeyframe> {
+        let position = self
+            .keyframes
+            .iter()
+            .position(|keyframe| keyframe.id == keyframe_id)
+            .ok_or_else(|| {
+                TermFxError::InvalidMcpRequest(format!("missing keyframe: {keyframe_id}"))
+            })?;
+        Ok(self.keyframes.remove(position))
+    }
+}
+
+fn default_speed() -> f32 {
+    1.0
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -365,5 +482,29 @@ mod tests {
         assert_eq!(right.start_frame, 90);
         assert_eq!(right.duration_frames, 60);
         assert_eq!(right.trim_start_frame, 75);
+    }
+
+    #[test]
+    fn tracks_markers_and_keyframes_are_mutable() {
+        let mut timeline = Timeline::default();
+        let video_track = timeline.add_track(TrackKind::Video, Some("Adjustment".to_string()));
+        assert_eq!(video_track, 3);
+
+        timeline
+            .set_track_state(video_track, Some(true), Some(false), None)
+            .unwrap();
+        assert!(timeline.track_mut(video_track).unwrap().muted);
+
+        let marker_id =
+            timeline.add_marker(48, "Beat".to_string(), None, Some("cut here".to_string()));
+        assert_eq!(timeline.markers.len(), 1);
+        assert_eq!(timeline.remove_marker(marker_id).unwrap().label, "Beat");
+
+        let mut clip = Clip::text("title", "Hello", 0, 60);
+        let mut keyframe = TransformKeyframe::new(30);
+        keyframe.x = 120.0;
+        let keyframe_id = clip.add_keyframe(keyframe);
+        assert_eq!(clip.keyframes.len(), 1);
+        assert_eq!(clip.remove_keyframe(keyframe_id).unwrap().x, 120.0);
     }
 }
