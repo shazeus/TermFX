@@ -1,8 +1,8 @@
 # TermFX
 
-<img width="1640" height="856" alt="Yeni Proje (2)" src="https://github.com/user-attachments/assets/41043c7a-431a-4ffd-8e33-7e57ca34eeb9" />
-
 [English](README.md) | [Türkçe](README.tr.md)
+
+![TermFX banner](assets/termfx-banner.png)
 
 Terminalden çalışan, FFmpeg tabanlı ve MCP uyumlu video editörü.
 
@@ -35,7 +35,23 @@ durumdadır.
 - Clip ekleme, trim ve ripple delete
 - Efekt stack’i:
   - `black_and_white`
+  - `sepia`
+  - `invert`
+  - `edge_detect`
   - `glitch`
+  - `brightness_contrast`
+  - `hue_rotate`
+  - `gaussian_blur`
+  - `box_blur`
+  - `sharpen`
+  - `vignette`
+  - `film_grain`
+  - `pixelate`
+  - `chromatic_aberration`
+  - `lens_distortion`
+  - `posterize`
+  - `letterbox`
+  - `border`
   - `fade_in`
   - `fade_out`
   - `s_shake`
@@ -43,9 +59,20 @@ durumdadır.
 - Ratatui/Crossterm ile terminal arayüzü
 - MCP stdio server:
   - `list_media`
+  - `list_effects`
+  - `import_media`
   - `append_media`
+  - `add_text_clip`
   - `cut_video`
   - `apply_effect`
+  - `remove_effect`
+  - `set_effect_enabled`
+  - `update_clip`
+  - `move_clip`
+  - `split_clip`
+  - `remove_clip`
+  - `set_timeline_settings`
+  - `render_command`
   - `smart_edit`
 - JSON proje dosyası
 - Test edilmiş temel render akışı
@@ -216,6 +243,38 @@ Medyaları ve timeline’ı listele:
 }
 ```
 
+Yerleşik efekt kütüphanesini listele:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "method": "tools/call",
+  "params": {
+    "name": "list_effects",
+    "arguments": {}
+  }
+}
+```
+
+MCP üzerinden medya import et:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 8,
+  "method": "tools/call",
+  "params": {
+    "name": "import_media",
+    "arguments": {
+      "path": "/absolute/path/to/shot.mp4",
+      "kind": "video",
+      "name": "shot"
+    }
+  }
+}
+```
+
 Medyayı timeline’a ekle:
 
 ```json
@@ -235,6 +294,25 @@ Medyayı timeline’a ekle:
 }
 ```
 
+Bağımsız text clip oluştur:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 9,
+  "method": "tools/call",
+  "params": {
+    "name": "add_text_clip",
+    "arguments": {
+      "track": 1,
+      "text": "INTRO",
+      "start_seconds": 0,
+      "duration_seconds": 2
+    }
+  }
+}
+```
+
 Timeline aralığını ripple delete ile kes:
 
 ```json
@@ -249,6 +327,41 @@ Timeline aralığını ripple delete ile kes:
       "start_seconds": 1.2,
       "end_seconds": 2.1,
       "ripple": true
+    }
+  }
+}
+```
+
+Clip’i timeline zamanında böl:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 10,
+  "method": "tools/call",
+  "params": {
+    "name": "split_clip",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "at_seconds": 2.5
+    }
+  }
+}
+```
+
+Clip zamanlama ve mix parametrelerini güncelle:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 11,
+  "method": "tools/call",
+  "params": {
+    "name": "update_clip",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "opacity": 0.85,
+      "volume": 0.6
     }
   }
 }
@@ -276,6 +389,26 @@ Clip’e `s_shake` efekti uygula:
 }
 ```
 
+Sinematik lens efekti uygula:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "tools/call",
+  "params": {
+    "name": "apply_effect",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "effect": "vignette",
+      "params": {
+        "angle": 0.7
+      }
+    }
+  }
+}
+```
+
 Yazı katmanı ekle:
 
 ```json
@@ -297,6 +430,22 @@ Yazı katmanı ekle:
         "start_seconds": 0,
         "duration_seconds": 2.5
       }
+    }
+  }
+}
+```
+
+Render almadan FFmpeg komutunu üret:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 13,
+  "method": "tools/call",
+  "params": {
+    "name": "render_command",
+    "arguments": {
+      "output": "out.mp4"
     }
   }
 }

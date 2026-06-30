@@ -99,18 +99,37 @@ impl Project {
     }
 
     pub fn apply_effect(&mut self, clip_id: Uuid, effect: Effect) -> Result<Uuid> {
-        let effect_name = match &effect {
-            Effect::BlackWhite => "black and white",
-            Effect::Glitch { .. } => "glitch",
-            Effect::FadeIn { .. } => "fade in",
-            Effect::FadeOut { .. } => "fade out",
-            Effect::SShake { .. } => "s_shake",
-            Effect::TextOverlay { .. } => "text overlay",
-        };
+        let effect_name = effect.kind();
         let instance = EffectInstance::new(effect_name, effect);
         let id = instance.id;
         self.timeline.clip_mut(clip_id)?.effects.push(instance);
         Ok(id)
+    }
+
+    pub fn remove_effect(&mut self, clip_id: Uuid, effect_id: Uuid) -> Result<()> {
+        let clip = self.timeline.clip_mut(clip_id)?;
+        let before = clip.effects.len();
+        clip.effects.retain(|effect| effect.id != effect_id);
+        if clip.effects.len() == before {
+            return Err(crate::TermFxError::MissingEffect(effect_id));
+        }
+        Ok(())
+    }
+
+    pub fn set_effect_enabled(
+        &mut self,
+        clip_id: Uuid,
+        effect_id: Uuid,
+        enabled: bool,
+    ) -> Result<()> {
+        let clip = self.timeline.clip_mut(clip_id)?;
+        let effect = clip
+            .effects
+            .iter_mut()
+            .find(|effect| effect.id == effect_id)
+            .ok_or(crate::TermFxError::MissingEffect(effect_id))?;
+        effect.enabled = enabled;
+        Ok(())
     }
 
     pub fn video_track_indices(&self) -> impl Iterator<Item = usize> + '_ {

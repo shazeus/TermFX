@@ -13,6 +13,8 @@ pub enum TermFxError {
     MissingMedia(Uuid),
     #[error("missing clip: {0}")]
     MissingClip(Uuid),
+    #[error("missing effect: {0}")]
+    MissingEffect(Uuid),
     #[error("invalid time range: start frame {start} must be before end frame {end}")]
     InvalidRange { start: u64, end: u64 },
     #[error("track {0} does not exist")]

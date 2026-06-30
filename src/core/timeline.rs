@@ -71,6 +71,14 @@ impl Timeline {
             .ok_or(TermFxError::MissingClip(id))
     }
 
+    pub fn clip_track_index(&self, id: Uuid) -> Result<usize> {
+        self.tracks
+            .iter()
+            .find(|track| track.clips.iter().any(|clip| clip.id == id))
+            .map(|track| track.index)
+            .ok_or(TermFxError::MissingClip(id))
+    }
+
     pub fn add_clip(&mut self, track_index: usize, clip: Clip) -> Result<Uuid> {
         let track = self.track_mut(track_index)?;
         if track.kind != clip.track_kind {
@@ -81,6 +89,70 @@ impl Timeline {
         track.clips.push(clip);
         track.clips.sort_by_key(|clip| (clip.start_frame, clip.id));
         Ok(id)
+    }
+
+    pub fn remove_clip(&mut self, clip_id: Uuid) -> Result<Clip> {
+        for track in &mut self.tracks {
+            if let Some(position) = track.clips.iter().position(|clip| clip.id == clip_id) {
+                return Ok(track.clips.remove(position));
+            }
+        }
+
+        Err(TermFxError::MissingClip(clip_id))
+    }
+
+    pub fn move_clip_to_track(&mut self, clip_id: Uuid, target_track_index: usize) -> Result<()> {
+        let target_kind = self
+            .tracks
+            .iter()
+            .find(|track| track.index == target_track_index)
+            .map(|track| track.kind)
+            .ok_or(TermFxError::MissingTrack(target_track_index))?;
+        let clip = self.remove_clip(clip_id)?;
+        if clip.track_kind != target_kind {
+            return Err(TermFxError::TrackKindMismatch {
+                track_index: target_track_index,
+            });
+        }
+        self.add_clip(target_track_index, clip)?;
+        Ok(())
+    }
+
+    pub fn split_clip_at_timeline_frame(
+        &mut self,
+        clip_id: Uuid,
+        split_frame: Frame,
+    ) -> Result<Uuid> {
+        let track_index = self.clip_track_index(clip_id)?;
+        let track = self.track_mut(track_index)?;
+        let position = track
+            .clips
+            .iter()
+            .position(|clip| clip.id == clip_id)
+            .ok_or(TermFxError::MissingClip(clip_id))?;
+        let clip_start = track.clips[position].start_frame;
+        let clip_end = track.clips[position].end_frame();
+        if split_frame <= clip_start || split_frame >= clip_end {
+            return Err(TermFxError::InvalidRange {
+                start: split_frame,
+                end: clip_end,
+            });
+        }
+
+        let right_duration = clip_end - split_frame;
+        let left_duration = split_frame - clip_start;
+        let mut right = track.clips[position].clone();
+        right.id = Uuid::new_v4();
+        right.name = format!("{} (split)", right.name);
+        right.start_frame = split_frame;
+        right.trim_start_frame += left_duration;
+        right.duration_frames = right_duration;
+        track.clips[position].duration_frames = left_duration;
+
+        let right_id = right.id;
+        track.clips.push(right);
+        track.clips.sort_by_key(|clip| (clip.start_frame, clip.id));
+        Ok(right_id)
     }
 
     pub fn trim_clip_to_source_range(
@@ -272,5 +344,26 @@ mod tests {
         assert_eq!(clips[1].start_frame, 100);
         assert_eq!(clips[1].duration_frames, 100);
         assert_eq!(clips[1].trim_start_frame, 200);
+    }
+
+    #[test]
+    fn split_clip_keeps_source_offsets() {
+        let media_id = Uuid::new_v4();
+        let mut timeline = Timeline::default();
+        let mut clip = Clip::media("shot", media_id, TrackKind::Video, 30, 120);
+        clip.trim_start_frame = 15;
+        let clip_id = clip.id;
+        timeline.add_clip(0, clip).unwrap();
+
+        let right_id = timeline.split_clip_at_timeline_frame(clip_id, 90).unwrap();
+        let left = timeline.clip(clip_id).unwrap();
+        let right = timeline.clip(right_id).unwrap();
+
+        assert_eq!(left.start_frame, 30);
+        assert_eq!(left.duration_frames, 60);
+        assert_eq!(left.trim_start_frame, 15);
+        assert_eq!(right.start_frame, 90);
+        assert_eq!(right.duration_frames, 60);
+        assert_eq!(right.trim_start_frame, 75);
     }
 }

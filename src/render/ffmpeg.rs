@@ -267,6 +267,13 @@ fn append_effect_filters(
 ) {
     match &instance.effect {
         Effect::BlackWhite => filters.push("hue=s=0".to_string()),
+        Effect::Sepia => filters.push(
+            "colorchannelmixer=rr=.393:rg=.769:rb=.189:gr=.349:gg=.686:gb=.168:br=.272:bg=.534:bb=.131".to_string(),
+        ),
+        Effect::Invert => filters.push("negate".to_string()),
+        Effect::EdgeDetect => {
+            filters.push("edgedetect=mode=colormix:high=0.22:low=0.08".to_string())
+        }
         Effect::Glitch { intensity } => {
             let amount = (intensity.clamp(0.0, 1.0) * 12.0).max(1.0);
             let noise = (intensity.clamp(0.0, 1.0) * 40.0).max(3.0);
@@ -277,6 +284,78 @@ fn append_effect_filters(
                 amount / 3.0
             ));
             filters.push(format!("noise=alls={:.1}:allf=t+u", noise));
+        }
+        Effect::BrightnessContrast {
+            brightness,
+            contrast,
+            saturation,
+        } => filters.push(format!(
+            "eq=brightness={:.3}:contrast={:.3}:saturation={:.3}",
+            brightness.clamp(-1.0, 1.0),
+            contrast.clamp(0.0, 4.0),
+            saturation.clamp(0.0, 4.0)
+        )),
+        Effect::HueRotate { degrees } => filters.push(format!("hue=h={:.3}", degrees)),
+        Effect::GaussianBlur { sigma } => {
+            filters.push(format!("gblur=sigma={:.3}", sigma.clamp(0.1, 50.0)))
+        }
+        Effect::BoxBlur { radius } => {
+            let radius = (*radius).clamp(1, 64);
+            filters.push(format!("boxblur=lr={}:lp=1:cr={}:cp=1", radius, radius));
+        }
+        Effect::Sharpen { amount } => {
+            filters.push(format!("unsharp=5:5:{:.3}:5:5:0.0", amount.clamp(0.0, 5.0)))
+        }
+        Effect::Vignette { angle } => {
+            filters.push(format!("vignette=angle={:.3}", angle.clamp(0.0, 3.14)))
+        }
+        Effect::FilmGrain { strength } => filters.push(format!(
+            "noise=alls={:.1}:allf=t+u",
+            (strength.clamp(0.0, 1.0) * 60.0).max(1.0)
+        )),
+        Effect::Pixelate { block_size } => {
+            let block = (*block_size).clamp(2, 128);
+            filters.push(format!(
+                "scale=iw/{0}:ih/{0}:flags=neighbor,scale=iw*{0}:ih*{0}:flags=neighbor",
+                block
+            ));
+        }
+        Effect::ChromaticAberration { offset_px } => {
+            let offset = (*offset_px).clamp(-64, 64);
+            filters.push(format!(
+                "rgbashift=rh={}:rv=0:gh=0:gv=0:bh={}:bv=0",
+                offset, -offset
+            ));
+        }
+        Effect::LensDistortion { k1, k2 } => filters.push(format!(
+            "lenscorrection=k1={:.4}:k2={:.4}",
+            k1.clamp(-1.0, 1.0),
+            k2.clamp(-1.0, 1.0)
+        )),
+        Effect::Posterize { levels } => {
+            let levels = (*levels).clamp(2, 64) as u32;
+            let step = (256 / levels).max(1);
+            filters.push(format!(
+                "lutrgb=r='floor(val/{0})*{0}':g='floor(val/{0})*{0}':b='floor(val/{0})*{0}'",
+                step
+            ));
+        }
+        Effect::Letterbox { height_px, color } => {
+            let height = (*height_px).min(settings.height / 2);
+            let color = sanitize_color(color);
+            filters.push(format!(
+                "drawbox=x=0:y=0:w=iw:h={height}:color={color}:t=fill,drawbox=x=0:y=ih-{height}:w=iw:h={height}:color={color}:t=fill"
+            ));
+        }
+        Effect::Border {
+            thickness_px,
+            color,
+        } => {
+            let thickness = (*thickness_px).clamp(1, 256);
+            let color = sanitize_color(color);
+            filters.push(format!(
+                "drawbox=x=0:y=0:w=iw:h=ih:color={color}:t={thickness}"
+            ));
         }
         Effect::FadeIn { duration_frames } => filters.push(format!(
             "fade=t=in:st=0:d={:.6}:alpha=1",
@@ -338,6 +417,19 @@ fn append_effect_filters(
                 end
             ));
         }
+    }
+}
+
+fn sanitize_color(color: &str) -> String {
+    let sanitized = color
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '#' | '@' | '.' | '_'))
+        .collect::<String>();
+
+    if sanitized.is_empty() {
+        "white".to_string()
+    } else {
+        sanitized
     }
 }
 

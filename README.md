@@ -1,8 +1,8 @@
 # TermFX
 
-<img width="1640" height="856" alt="Yeni Proje (2)" src="https://github.com/user-attachments/assets/aca509fc-b2c2-4d41-b1d8-3319462921ef" />
-
 [English](README.md) | [Türkçe](README.tr.md)
+
+![TermFX banner](assets/termfx-banner.png)
 
 Terminal-native video editor with FFmpeg rendering, a rich TUI, and MCP tools
 for AI-assisted editing.
@@ -36,7 +36,23 @@ and MCP tool handlers are already wired together.
 - Clip append, trim, and ripple delete
 - Effect stack support:
   - `black_and_white`
+  - `sepia`
+  - `invert`
+  - `edge_detect`
   - `glitch`
+  - `brightness_contrast`
+  - `hue_rotate`
+  - `gaussian_blur`
+  - `box_blur`
+  - `sharpen`
+  - `vignette`
+  - `film_grain`
+  - `pixelate`
+  - `chromatic_aberration`
+  - `lens_distortion`
+  - `posterize`
+  - `letterbox`
+  - `border`
   - `fade_in`
   - `fade_out`
   - `s_shake`
@@ -44,9 +60,20 @@ and MCP tool handlers are already wired together.
 - Terminal UI built with Ratatui and Crossterm
 - MCP stdio server:
   - `list_media`
+  - `list_effects`
+  - `import_media`
   - `append_media`
+  - `add_text_clip`
   - `cut_video`
   - `apply_effect`
+  - `remove_effect`
+  - `set_effect_enabled`
+  - `update_clip`
+  - `move_clip`
+  - `split_clip`
+  - `remove_clip`
+  - `set_timeline_settings`
+  - `render_command`
   - `smart_edit`
 - JSON project file format
 - Tested baseline render path
@@ -217,6 +244,38 @@ List media and timeline state:
 }
 ```
 
+List the built-in effect library:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "method": "tools/call",
+  "params": {
+    "name": "list_effects",
+    "arguments": {}
+  }
+}
+```
+
+Import media through MCP:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 8,
+  "method": "tools/call",
+  "params": {
+    "name": "import_media",
+    "arguments": {
+      "path": "/absolute/path/to/shot.mp4",
+      "kind": "video",
+      "name": "shot"
+    }
+  }
+}
+```
+
 Append media to the timeline:
 
 ```json
@@ -236,6 +295,25 @@ Append media to the timeline:
 }
 ```
 
+Add a dedicated text clip:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 9,
+  "method": "tools/call",
+  "params": {
+    "name": "add_text_clip",
+    "arguments": {
+      "track": 1,
+      "text": "INTRO",
+      "start_seconds": 0,
+      "duration_seconds": 2
+    }
+  }
+}
+```
+
 Cut a timeline range with ripple delete:
 
 ```json
@@ -250,6 +328,41 @@ Cut a timeline range with ripple delete:
       "start_seconds": 1.2,
       "end_seconds": 2.1,
       "ripple": true
+    }
+  }
+}
+```
+
+Split a clip at a timeline timestamp:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 10,
+  "method": "tools/call",
+  "params": {
+    "name": "split_clip",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "at_seconds": 2.5
+    }
+  }
+}
+```
+
+Update clip timing and mix parameters:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 11,
+  "method": "tools/call",
+  "params": {
+    "name": "update_clip",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "opacity": 0.85,
+      "volume": 0.6
     }
   }
 }
@@ -277,6 +390,26 @@ Apply an `s_shake` effect to a clip:
 }
 ```
 
+Apply a cinematic lens effect:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "tools/call",
+  "params": {
+    "name": "apply_effect",
+    "arguments": {
+      "clip_id": "33c6f411-29d9-4e77-b606-4f444c0b5817",
+      "effect": "vignette",
+      "params": {
+        "angle": 0.7
+      }
+    }
+  }
+}
+```
+
 Add a text overlay:
 
 ```json
@@ -298,6 +431,22 @@ Add a text overlay:
         "start_seconds": 0,
         "duration_seconds": 2.5
       }
+    }
+  }
+}
+```
+
+Build the FFmpeg render command without executing it:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 13,
+  "method": "tools/call",
+  "params": {
+    "name": "render_command",
+    "arguments": {
+      "output": "out.mp4"
     }
   }
 }
