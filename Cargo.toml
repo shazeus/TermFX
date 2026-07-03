@@ -1,7 +1,8 @@
 [package]
 name = "termfx"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
+default-run = "termfx"
 license = "MIT"
 description = "Native video editor with FFmpeg rendering, visual editing controls, and an MCP server."
 
